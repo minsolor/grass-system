@@ -431,11 +431,12 @@ function render(){renderChips();renderZones();renderToday();renderBookTable();re
 function renderChips(){
   const total=D.zones.reduce((s,z)=>s+agg(z).readyArea,0);
   const e=agg(D.zones.find(z=>z.id==='E'));
-  const tb=D.bookings.filter(b=>b.startDate<=today()&&(b.endDate||b.startDate)>=today()&&b.status==='已确认');
+  const tb=D.bookings.filter(b=>b.startDate<=today()&&(b.endDate||b.startDate)>=today());
   document.getElementById('chips').innerHTML=
    `<span class="chip">当前可测面积 <b>${total}㎡</b> / 1000㎡</span>
     <span class="chip">E区容错 <b>${e.readyArea}㎡可用</b></span>
     <span class="chip">今日预约 <b>${tb.length}</b> 单</span>
+    <span class="chip">累计预约 <b>${D.bookings.length}</b> 单</span>
     <span class="chip">累计使用 <b>${D.usage.length}</b> 次</span>
     <span class="chip">待复核 <b>${pendingReview().length}</b></span>
     <span class="chip">取消待审 <b>${pendingCancel().length}</b></span>
