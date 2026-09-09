@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>草场预约与状态管理系统</title>
+<style>
+:root{
+  --bg:#f5f7fa; --card:#ffffff; --line:#e5e9f0; --text:#1e2a38; --muted:#6b7a8c;
+  --green:#16a34a; --green-bg:#e8f8ee; --orange:#d97706; --orange-bg:#fdf3e3;
+  --blue:#2563eb; --blue-bg:#e8f0fe; --purple:#7c3aed; --purple-bg:#f1eafe;
+  --red:#dc2626; --red-bg:#fdeaea; --teal:#0d9488; --teal-bg:#e0f5f3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.wrap{max-width:1140px;margin:0 auto;padding:16px}
+header{background:linear-gradient(135deg,#166534,#15803d);color:#fff;border-radius:12px;padding:18px 20px;margin-bottom:14px}
+header h1{font-size:19px;margin-bottom:4px}
+header p{font-size:12.5px;opacity:.92}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:12.5px}
+.chip b{font-size:14px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13.5px}
+nav button.active{background:#166534;color:#fff;border-color:#166534}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
+.card h2{font-size:15px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.card h3{font-size:13.5px;margin:10px 0 8px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.zone{border-radius:10px;padding:12px;border:1px solid var(--line);background:#fff}
+.zone .tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:10px;margin-bottom:6px;font-weight:600}
+.zone .zname{font-size:16px;font-weight:700;margin-bottom:4px}
+.zone .meta{font-size:12px;color:var(--muted);line-height:1.7}
+.plots{display:flex;gap:3px;margin-top:8px}
+.plot{flex:1;height:26px;border-radius:4px;font-size:9.5px;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;border:1px solid rgba(0,0,0,.08);position:relative;overflow:hidden}
+.plot.closed{opacity:.55;cursor:not-allowed}
+.plot.closed::after{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,transparent 0,transparent 3px,rgba(255,255,255,.35) 3px,rgba(255,255,255,.35) 5px);pointer-events:none}
+.plots-legend{font-size:11px;color:var(--muted);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:#f0f4f8;text-align:left;padding:7px 8px;border:1px solid var(--line);white-space:nowrap}
+td{padding:7px 8px;border:1px solid var(--line);vertical-align:top}
+tr.today{background:#fefce8}
+form .row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:10px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit;background:#fff}
+textarea{resize:vertical;min-height:56px}
+.btn{display:inline-block;border:none;border-radius:8px;padding:9px 18px;font-size:13.5px;cursor:pointer;background:#166534;color:#fff;margin-right:8px;margin-top:4px}
+.btn.gray{background:#64748b}.btn.red{background:var(--red)}.btn.blue{background:var(--blue)}.btn.sm{padding:5px 10px;font-size:12px}
+.match{border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--green-bg)}
+.match .why{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.7}
+.match .score{font-size:12px;font-weight:700;color:var(--green)}
+.nomatch{border:1px solid var(--orange);border-radius:10px;padding:12px;background:var(--orange-bg);font-size:13px;line-height:1.8}
+.badge{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:10px;font-weight:600}
+.b-ok{background:var(--green-bg);color:var(--green)}.b-warn{background:var(--orange-bg);color:var(--orange)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}.b-gray{background:#f1f5f9;color:var(--muted)}
+.b-red{background:var(--red-bg);color:var(--red)}.b-teal{background:var(--teal-bg);color:var(--teal)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.notice{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7;margin-bottom:10px}
+.tip{font-size:12px;color:var(--muted);line-height:1.7}
+.subsel{padding:4px;font-size:11.5px;min-width:66px}
+.alertbar{background:var(--red-bg);border:1px solid #fca5a5;border-left:4px solid var(--red);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.alertbar b{color:var(--red)}
+.alertbar ul{margin:8px 0 0 18px;font-size:12.5px;line-height:1.9}
+.thumb{width:54px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--line);cursor:pointer;margin-right:4px}
+.adminbox{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:#fbfcfe}
+.adminbox h3{font-size:13.5px;margin:0 0 10px;color:var(--text)}
+.phase-tip{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.7;margin-bottom:10px}
+.roster{font-size:12.5px;line-height:1.9}
+.roster b{color:var(--teal)}
+.bkbar{margin-top:6px;font-size:12px;line-height:1.7}
+.bkbar .pin{display:inline-block;font-size:11px;padding:1px 6px;border-radius:8px;margin-right:4px;font-weight:600}
+.pin-now{background:#fef3c7;color:#b45309;border:1px solid #fbbf24}
+.pin-fut{background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd}
+.pin-now-mark{position:absolute;top:6px;right:6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:#fef3c7;color:#b45309;border:1px solid #fbbf24}
+.pin-fut-mark{position:absolute;top:6px;right:6px;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd}
+.zone{position:relative}
+@media(max-width:640px){.row{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>🌿 草场预约与状态管理系统</h1>
+  <p>光明测试基地 1000㎡ · 五区 200㎡ × 5，每区再细分为 5 块 40㎡ 子地块（共 25 块）｜预约自动匹配 → 确认使用 → 用后按地块更新状态 → 记录存档</p>
+  <div class="chips" id="chips"></div>
+</header>
+
+<nav id="nav">
+  <button data-p="dash" class="active">📋 状态看板</button>
+  <button data-p="book">📝 预约申请（自动匹配）</button>
+  <button data-p="list">📅 预约总览</button>
+  <button data-p="done">✅ 使用完成登记</button>
+  <button data-p="weekly">🧑‍🌾 每周状态维护</button>
+  <button data-p="usage">📚 使用记录存档</button>
+  <button data-p="admin">🛡 管理后台 / 复核</button>
+</nav>
+
+<div class="panel active" id="p-dash">
+  <div id="overdueBar"></div>
+  <div class="card">
+    <h2>五区实时状态（子地块颗粒度 40㎡）</h2>
+    <div class="toolbar"><button class="btn blue sm" onclick="copyBroadcast()">📢 复制部门群播报</button><button class="btn gray sm" onclick="resetData()">↺ 重置为钉钉表数据</button></div>
+    <div class="grid" id="zoneGrid"></div>
+    <p class="plots-legend">图例：绿=可测 · 青=部分可测 · 橙=施肥养护 · 蓝=恢复期 · 紫=长草培育 · 红=修复中。</p>
+  </div>
+  <div class="card"><h2>今日 / 近期预约</h2><div id="todayBook"></div></div>
+</div>
+
+<div class="panel" id="p-book">
+  <div class="card">
+    <h2>① 填写用草需求</h2>
+    <div class="notice">需要几块就填几块：系统按 40㎡/块 匹配，优先给<u>连片</u>地块（如要 3 块 40㎡ 的 7cm 长草，会匹配出 120㎡ 连片并列出具体地块编号）。</div>
+    <form id="bookForm">
+      <div class="row">
+        <div><label>团队/部门 *</label><input id="f-team" required placeholder="如：感知算法组"></div>
+        <div><label>联系人 *</label><input id="f-contact" required placeholder="姓名"></div>
+        <div><label>联系电话</label><input id="f-phone" placeholder="选填"></div>
+      </div>
+      <div class="row">
+        <div><label>起始时间 *</label><input type="datetime-local" id="f-start-dt" required></div>
+        <div><label>结束时间 *</label><input type="datetime-local" id="f-end-dt" required></div>
+      </div>
+      <div class="row">
+        <div><label>需求类型 *</label><select id="f-type">
+          <option value="normal">③ 常规使用（验收/演示/跑圈）</option>
+          <option value="long">① 看草长（长草区，需草自然生长到位）</option>
+          <option value="stubble">② 看割草高度（需预剪到指定留茬）</option>
+        </select></div>
+        <div><label>目标草高(cm) *</label><select id="f-height">
+          <option value="">不限</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select></div>
+        <div><label>所需面积 *</label><select id="f-blocks">
+          <option value="1">1 块 · 40㎡</option>
+          <option value="2">2 块 · 80㎡</option>
+          <option value="3">3 块 · 120㎡</option>
+          <option value="4">4 块 · 160㎡</option>
+          <option value="5">5 块 · 200㎡（整区）</option>
+        </select></div>
+        <div><label>是否紧急任务</label><select id="f-urgent" onchange="updateEUrgTip()"><option value="no">否（E 区不可用）</option><option value="yes">是（紧急任务可优先匹配 E 区）</option></select><div id="e-tip" class="tip" style="margin-top:4px"></div></div>
+      </div>
+      <div class="row"><div><label>测试内容 *</label><textarea id="f-content" required placeholder="如：3块40㎡ 7cm 长草穿越测试"></textarea></div></div>
+      <button type="submit" class="btn">🔍 自动匹配可用地块</button>
+    </form>
+  </div>
+  <div class="card" id="matchCard" style="display:none">
+    <h2>② 匹配结果（选择并确认）</h2>
+    <div id="matchResult"></div>
+  </div>
+</div>
+
+<div class="panel" id="p-list">
+  <div class="card">
+    <h2>预约总览</h2>
+    <div class="toolbar">
+      <button class="btn blue sm" onclick="exportBook()">⬇ 导出预约CSV</button>
+      <button class="btn gray sm" onclick="copyBook()">📋 复制（粘贴到钉钉预约表）</button>
+    </div>
+    <div id="bookTable"></div>
+  </div>
+</div>
+
+<div class="panel" id="p-done">
+  <div class="card">
+    <h2>使用完成登记（按地块更新，不影响未用区域）</h2>
+    <div class="notice">例：C 区取 3 块 40㎡ 做 7cm 长草测试 → 登记后<u>只把这 3 块（C-2/C-3/C-4）更新为"补剪复位·恢复期"</u>，C 区剩余 2 块（80㎡）保持可测，C 区整体显示为「部分可测 80/200㎡」，不整区封闭。</div>
+    <form id="doneForm">
+      <div class="row">
+        <div><label>选择预约记录 *</label><select id="d-book" required></select></div>
+        <div><label>使用后草坪状态 *</label><select id="d-cond" required>
+          <option value="良好">良好（可继续使用）</option>
+          <option value="轻微损伤">轻微损伤（需短期恢复）</option>
+          <option value="明显损伤">明显损伤（需封闭修复）</option>
+        </select></div>
+      </div>
+      <div class="row">
+        <div><label>使用后草高(cm) *</label><input type="number" id="d-height" step="0.1" min="0" placeholder="如：4（长草用毕补剪复位留 4cm）"></div>
+        <div><label>现场照片 *（至少 1 张，最多 3 张）</label><input type="file" id="d-photos" accept="image/*" multiple required></div>
+      </div>
+      <div class="row"><div><label>备注（碾压点/秃斑位置等）</label><textarea id="d-note" placeholder="选填"></textarea></div></div>
+      <button type="submit" class="btn">✅ 提交并按地块更新状态（提交后进入监督员复核）</button>
+      <p class="tip">照片会自动压缩后存入本机，仅用于留档与复核；提交后地块状态立即更新，同时生成一条「待复核」记录，由当周轮值监督员确认后才算闭环。</p>
+    </form>
+  </div>
+</div>
+
+<div class="panel" id="p-weekly">
+  <div class="card">
+    <h2>每周草场状态维护（草场管理员）</h2>
+    <div class="notice">默认按整区设置（自动应用到该区 5 块子地块）；个别地块状态不同时，可在「子地块状态」列单独调整（改过的地块不会被整区设置覆盖）。</div>
+    <div class="row">
+      <div><label>周次 *</label><input id="w-label" placeholder="如：第2周"></div>
+      <div><label>日期 *</label><input type="date" id="w-date" required></div>
+    </div>
+    <table id="weeklyTable"><thead><tr><th>区域 / 地块</th><th>阶段</th><th>草高(cm)</th><th>备注</th></tr></thead><tbody></tbody></table>
+    <button class="btn" onclick="saveWeekly()">🧑‍🌾 提交本周状态</button>
+  </div>
+  <div class="card">
+    <h2>养护周报存档</h2>
+    <div class="toolbar"><button class="btn blue sm" onclick="exportWeekly()">⬇ 导出周报CSV</button></div>
+    <div id="weeklyLog"></div>
+  </div>
+</div>
+
+<div class="panel" id="p-usage">
+  <div class="card">
+    <h2>使用记录存档</h2>
+    <div class="toolbar">
+      <button class="btn blue sm" onclick="exportUsage()">⬇ 导出记录CSV</button>
+      <button class="btn gray sm" onclick="copyUsage()">📋 复制（粘贴到钉钉使用记录表）</button>
+    </div>
+    <div id="usageTable"></div>
+  </div>
+</div>
+
+<div class="panel" id="p-admin">
+  <div class="card">
+    <h2>🛡 管理后台</h2>
+    <div class="phase-tip" id="phaseTip"></div>
+    <div class="row">
+      <div><label>当前操作人 *</label><input id="a-operator" placeholder="输入姓名，用于权限校验与操作留痕" onchange="savePhase()"></div>
+      <div><label>权限阶段</label><select id="a-phase" onchange="savePhase()">
+        <option value="trial">试运行期（仅管理员可审批/复核）</option>
+        <option value="open">稳定运行期（轮值监督员可复核）</option>
+      </select></div>
+      <div><label>管理员姓名</label><input id="a-admin" placeholder="如：廖钰杨" onchange="savePhase()"></div>
+    </div>
+    <div class="row">
+      <div style="grid-column:1/-1"><label>📨 钉钉群机器人 Webhook（有人提交预约时自动推送消息到群）</label>
+        <input id="a-webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." onchange="savePhase()">
+        <p class="tip" style="margin-top:4px">设置方法：钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义 → 复制 webhook URL 粘贴到这里。保存后，每次有人提交预约，系统会自动 @ 管理员/监督员 推送消息到该群。留空则降级为「通知文本复制到剪贴板」手动发送。</p>
+        <div id="webhookStatus" class="tip"></div>
+      </div>
+  </div>
+
+  <div class="card">
+    <h2>① 取消申请审核（用户无自主取消权限）</h2>
+    <div class="notice">用户点「申请取消」后，预约<b>仍占用场地</b>，需管理员在下方批准后才释放地块；批准/驳回均会生成通知记录，可复制后发到部门群/私聊用户。</div>
+    <div id="cancelList"></div>
+  </div>
+
+  <div class="card">
+    <h2>② 使用登记复核（兜底闭环）</h2>
+    <div class="notice">用户提交使用登记后进入「待复核」，经当周轮值监督员/管理员复核通过后，该次使用才算全流程闭环。</div>
+    <div id="reviewList"></div>
+  </div>
+
+  <div class="card">
+    <h2>③ 轮值监督员排期（自动滚动）</h2>
+    <div class="row"><div><label>监督员名单（一行一个，轮值自动滚动）</label><textarea id="a-roster" onchange="saveRoster()"></textarea></div></div>
+    <div id="rosterView" class="roster"></div>
+  </div>
+
+  <div class="card">
+    <h2>④ 存档与统计导出</h2>
+    <div class="notice">所有预约、使用、复核、取消申请记录统一存档，可导出统计表用于定期复盘与汇报。</div>
+    <div class="toolbar">
+      <button class="btn blue sm" onclick="exportStats()">⬇ 导出统计汇总CSV</button>
+      <button class="btn blue sm" onclick="exportBook()">⬇ 预约记录CSV</button>
+      <button class="btn blue sm" onclick="exportUsage()">⬇ 使用记录CSV</button>
+      <button class="btn blue sm" onclick="exportReview()">⬇ 复核记录CSV</button>
+      <button class="btn blue sm" onclick="exportCancel()">⬇ 取消申请CSV</button>
+      <button class="btn blue sm" onclick="exportWeekly()">⬇ 养护周报CSV</button>
+    </div>
+    <div id="statView"></div>
+  </div>
+</div>
+
+<div class="panel" id="p-sched" style="display:none">
+  <div class="card"><h2>8周轮换排期（A/B ↔ C/D，E容错）</h2><div id="schedTable"></div></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const PLOT_AREA=40, PLOTS_PER_ZONE=5;
+const ST={
+  ready:{label:'可测试',bg:'var(--green-bg)',fg:'var(--green)',solid:'#16a34a',closed:false},
+  partial:{label:'部分可测',bg:'var(--teal-bg)',fg:'var(--teal)',solid:'#0d9488',closed:false},
+  fertilizing:{label:'施肥养护',bg:'var(--orange-bg)',fg:'var(--orange)',solid:'#d97706',closed:true},
+  recovering:{label:'恢复期',bg:'var(--blue-bg)',fg:'var(--blue)',solid:'#2563eb',closed:true},
+  growing:{label:'长草培育',bg:'var(--purple-bg)',fg:'var(--purple)',solid:'#7c3aed',closed:true},
+  repair:{label:'修复中',bg:'var(--red-bg)',fg:'var(--red)',solid:'#dc2626',closed:true}
+};
+const TYPE={normal:'③常规使用',long:'①看草长(长草区)',stubble:'②看割草高度'};
+const KEY='grassSystemV3';
+/* ===== 云端共享存储（Supabase）：填好下方两项即自动切换为多人实时共享 ===== */
+const SUPABASE_URL='https://vqbdmhcchhggkhjpuewo.supabase.co';       // ← 粘贴你的 Supabase Project URL（形如 https://xxxx.supabase.co）
+const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxYmRtaGNjaGhnZ2toanB1ZXdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MTc1OTEsImV4cCI6MjEwNDQ5MzU5MX0.Z3QZvX6ZwZHjOhGa7TjqBUbjGVoMpWoyPug6OiqSGLc'; // ← 粘贴你的 anon public key
+const USE_CLOUD=!!(SUPABASE_URL&&SUPABASE_ANON&&window.supabase);
+const _sb=USE_CLOUD?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON):null;
+let _syncing=false,_dirty=false;
+/* 拉取远端最新数据 */
+async function pullRemote(){if(!_sb)return null;const{data,error}=await _sb.from('grass_state').select('data').eq('id',1).maybeSingle();return error?null:(data?data.data:null);}
+/* 推送到远端：先拉最新再合并，避免覆盖他人改动 */
+async function pushRemote(obj){if(!_sb)return;const remote=await pullRemote();const merged=remote?mergeState(remote,obj):obj;const{error}=await _sb.from('grass_state').upsert({id:1,data:merged,updated_at:new Date().toISOString()},{onConflict:'id'});if(error)console.warn('[sync]push failed',error);}
+/* 数组合并：按 id 并集，后者（本地）优先 */
+function byIdMerge(base,ov){const m=new Map();(base||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});(ov||[]).forEach(x=>{if(x&&x.id!=null)m.set(x.id,x);});return[...m.values()];}
+function mergeZones(base,ov){const m=new Map();(base||[]).forEach(z=>{m.set(z.id,JSON.parse(JSON.stringify(z)));});(ov||[]).forEach(z=>{const t=m.get(z.id)||{id:z.id};t.plots=byIdMerge(t.plots||[],z.plots||[]);t.note=z.note;t.role=z.role;m.set(z.id,t);});return[...m.values()];}
+function mergeState(base,ov){return Object.assign({},base,ov,{zones:mergeZones(base.zones,ov.zones),bookings:byIdMerge(base.bookings,ov.bookings),usage:byIdMerge(base.usage,ov.usage),weekly:byIdMerge(base.weekly,ov.weekly),cancelRequests:byIdMerge(base.cancelRequests,ov.cancelRequests)});}
+const E_HEIGHTS=[5.0,5.5,6.0,6.5,7.0];
+const mkZones=(id,role,status,height,note)=>({id,role,note:note||'',plots:Array.from({length:PLOTS_PER_ZONE},(_,i)=>({id:`${id}-${i+1}`,status,height:Array.isArray(height)?height[i]:height,note:''}))});
+const DEFAULT={
+  dataVersion:2,
+  zones:[
+    mkZones('A','常规轮换','fertilizing',2.5,'第1周 施肥养护'),
+    mkZones('B','常规轮换','fertilizing',2.5,'第1周 施肥养护'),
+    mkZones('C','常规轮换','ready',5.0,'标准养护状态'),
+    mkZones('D','常规轮换','ready',5.2,'标准养护状态'),
+    mkZones('E','容错区(紧急插单)','ready',E_HEIGHTS,'常态保持可测 5-7cm')
+  ],
+  bookings:[],usage:[],weekly:[],
+  supervisors:['廖钰杨','轮值监督员2','轮值监督员3'],
+  cancelRequests:[],phase:'trial',adminName:'廖钰杨',operator:'',
+  dingtalkWebhook:'',dingtalkSecret:'',
+  schedule:[
+    ['第1周','9/1-9/7','施肥养护','施肥养护','可测试','可测试','C+D'],
+    ['第2周','9/8-9/14','恢复期','恢复期','可测试','可测试','C+D'],
+    ['第3周','9/15-9/21','可测试','可测试','施肥养护','施肥养护','A+B'],
+    ['第4周','9/22-9/28','可测试','可测试','恢复期','恢复期','A+B'],
+    ['第5周','9/29-10/5','施肥养护','施肥养护','可测试','可测试','C+D'],
+    ['第6周','10/6-10/12','恢复期','恢复期','可测试','可测试','C+D'],
+    ['第7周','10/13-10/19','可测试','可测试','施肥养护','施肥养护','A+B'],
+    ['第8周','10/20-10/26','可测试','可测试','恢复期','恢复期','A+B']
+  ]
+};
+let D=null;
+function normalizeState(p){
+  p=p||{};
+  p.zones=(p.zones||[]).map(z=>{
+    if(!z.plots)z.plots=Array.from({length:PLOTS_PER_ZONE},(_,i)=>({id:`${z.id}-${i+1}`,status:z.status||'ready',height:z.height||5,note:''}));
+    return z;});
+  if(!p.zones.length)p.zones=JSON.parse(JSON.stringify(DEFAULT.zones));
+  p.bookings=(p.bookings||[]).map(b=>{if(!b.startDate){b.startDate=b.date;b.endDate=b.date;}return b;});
+  p.usage=(p.usage||[]).map(u=>{if(!u.startDate){u.startDate=u.date;u.endDate=u.date;}return u;});
+  p.usage=p.usage||[];
+  p.supervisors=(p.supervisors&&p.supervisors.length)?p.supervisors:['廖钰杨','轮值监督员2','轮值监督员3'];
+  p.cancelRequests=p.cancelRequests||[];p.phase=p.phase||'trial';p.adminName=p.adminName||'廖钰杨';p.operator=p.operator||'';
+  p.dingtalkWebhook=p.dingtalkWebhook||'';p.dingtalkSecret=p.dingtalkSecret||'';
+  p.weekly=p.weekly||[];p.schedule=p.schedule||DEFAULT.schedule;
+  if(!p.dataVersion||p.dataVersion<2){
+    const ez=(p.zones||[]).find(z=>z.id==='E');
+    if(ez&&ez.plots)ez.plots.forEach((pl,i)=>{pl.height=E_HEIGHTS[i];});
+    if(ez)ez.note='常态保持可测 5-7cm';
+    p.dataVersion=2;
+  }
+  if(p.dataVersion<3){
+    const oldDefault=['轮值监督员1','轮值监督员2','轮值监督员3'];
+    if(p.supervisors&&p.supervisors.length===3&&p.supervisors.every((s,i)=>s===oldDefault[i])){
+      p.supervisors=['廖钰杨','轮值监督员2','轮值监督员3'];
+    }
+    if(p.adminName==='开发管理员')p.adminName='廖钰杨';
+    p.dataVersion=3;
+  }
+  return p;
+}
+async function load(){
+  let base=JSON.parse(JSON.stringify(DEFAULT));
+  if(_sb){
+    const r=await pullRemote();
+    if(r){
+      base=normalizeState(mergeState(base,r));
+    }else{
+      // 云端为空：把本机已有数据作为初始值推上去（首次迁移，避免丢本地数据）
+      try{const s=localStorage.getItem(KEY);if(s)base=normalizeState(mergeState(base,JSON.parse(s)));}catch(e){}
+      await pushRemote(base);
+    }
+  }else{
+    try{const s=localStorage.getItem(KEY);if(s)base=normalizeState(JSON.parse(s));}catch(e){}
+  }
+  return base;
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}
+  render();
+  if(_sb){ if(_syncing){_dirty=true;return;} doPush(); }
+}
+async function doPush(){
+  _syncing=true;
+  try{ await pushRemote(JSON.parse(JSON.stringify(D))); }catch(e){console.warn('[sync]push error',e);}
+  _syncing=false;
+  if(_dirty){_dirty=false;doPush();}
+}
+/* 每 15 秒拉取一次远端，自动同步他人改动（正在填表单时跳过以免打断输入） */
+function startSync(){
+  if(!_sb)return;
+  setInterval(async()=>{
+    const a=document.activeElement;
+    if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT'||(a.closest&&a.closest('form'))))return;
+    const r=await pullRemote();
+    if(r){const merged=mergeState(D,r);if(JSON.stringify(merged)!==JSON.stringify(D)){D=merged;render();}}
+  },15000);
+}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function today(){return new Date().toISOString().slice(0,10);}
+
+/* 区域聚合：看子地块算父区状态 */
+function agg(z){
+  const ready=z.plots.filter(p=>p.status==='ready');
+  if(ready.length===z.plots.length)return{status:'ready',label:'可测试',closed:false,readyArea:ready.length*PLOT_AREA,readyCount:ready.length};
+  if(ready.length===0){
+    let s='recovering';
+    for(const o of ['repair','fertilizing','growing','recovering']){if(z.plots.some(p=>p.status===o)){s=o;break;}}
+    return{status:s,label:ST[s].label,closed:true,readyArea:0,readyCount:0};
+  }
+  return{status:'partial',label:`部分可测 ${ready.length*PLOT_AREA}/${z.plots.length*PLOT_AREA}㎡`,closed:false,readyArea:ready.length*PLOT_AREA,readyCount:ready.length};
+}
+function plotBusy(plotId,date,start,end){
+  return D.bookings.some(b=>{
+    if(b.status!=='已确认')return false;
+    if(!(b.plots||[]).includes(plotId))return false;
+    const sd=b.startDate||b.date, ed=b.endDate||sd;
+    if(date<sd||date>ed)return false;
+    return start<(b.end||'18:00')&&end>(b.start||'00:00');
+  });
+}
+function plotOK(p,type,need){ // 地块是否草高达标
+  if(p.status!=='ready')return{ok:false,why:`${ST[p.status].label}`};
+  if(need!==null){
+    if(type==='long'&&p.height<need)return{ok:false,why:`草高${p.height}cm<需${need}cm`};
+    if(type==='stubble'&&p.height<need+1)return{ok:false,why:`草高${p.height}cm不足剪出${need}cm留茬`};
+    if(type==='normal'&&p.height<need)return{ok:false,why:`草高${p.height}cm<需${need}cm（常规使用也按目标草高匹配）`};
+  }
+  return{ok:true};
+}
+function dateLabel(b){return b.startDate===b.endDate?b.startDate:`${b.startDate}~${b.endDate}`;}
+
+/* ---------- 渲染 ---------- */
+function render(){renderChips();renderZones();renderToday();renderBookTable();renderDoneSelect();renderUsage();renderWeeklyLog();renderOverdue();renderAdmin();fillWeeklyForm();}
+function renderChips(){
+  const total=D.zones.reduce((s,z)=>s+agg(z).readyArea,0);
+  const e=agg(D.zones.find(z=>z.id==='E'));
+  const tb=D.bookings.filter(b=>b.startDate<=today()&&(b.endDate||b.startDate)>=today()&&b.status==='已确认');
+  document.getElementById('chips').innerHTML=
+   `<span class="chip">当前可测面积 <b>${total}㎡</b> / 1000㎡</span>
+    <span class="chip">E区容错 <b>${e.readyArea}㎡可用</b></span>
+    <span class="chip">今日预约 <b>${tb.length}</b> 单</span>
+    <span class="chip">累计使用 <b>${D.usage.length}</b> 次</span>
+    <span class="chip">待复核 <b>${pendingReview().length}</b></span>
+    <span class="chip">取消待审 <b>${pendingCancel().length}</b></span>
+    <span class="chip">本周监督员 <b>${supervisorOf(today())}</b></span>
+    <span class="chip">${USE_CLOUD?'☁️ 云端共享同步中':'💾 本地模式（数据仅存本机）'}</span>`;
+}
+function renderZones(){
+  document.getElementById('zoneGrid').innerHTML=D.zones.map(z=>{
+    const a=agg(z);
+    const zb=zoneBookings(z);
+    const hasInUse=zb.nowList.length>0;
+    const hasFuture=zb.futureList.length>0;
+    const zoneMark=hasInUse?'<span class="pin-now-mark">⏱ 正在使用</span>':(hasFuture?'<span class="pin-fut-mark">📅 已预约</span>':'');
+    const nowLine=zb.nowList.map(b=>`<span class="pin pin-now">⏱ ${b.start}-${b.end} ${esc(b.team)} ${esc(b.contact||'')}</span>`).join('');
+    const futLine=zb.futureList.slice(0,3).map(b=>`<span class="pin pin-fut">📅 ${b.startDate===b.endDate?b.startDate:(b.startDate+'~'+b.endDate)} ${b.start}-${b.end} ${esc(b.team)}</span>`).join('')+(zb.futureList.length>3?` <span class="tip">…还有${zb.futureList.length-3}条</span>`:'');
+      const zs=z.id==='E'?(()=>{const hs=z.plots.map(p=>p.height);return ` · 草高 ${Math.min(...hs)}-${Math.max(...hs)}cm`;})():'';
+      return `<div class="zone">
+      ${zoneMark}
+      <span class="tag" style="background:${ST[a.status].bg};color:${ST[a.status].fg}">${a.label}${a.closed?'（封闭）':'（开放）'}</span>
+      <div class="zname">${z.id}区 · 200㎡</div>
+      <div class="meta">定位：${z.role}${zs}｜可测 <b>${a.readyArea}㎡</b>（${a.readyCount}/5 块）${z.note?'<br>'+esc(z.note):''}</div>
+      <div class="plots">${z.plots.map(p=>{
+        const bs=plotBookingState(p.id);
+        const plotMark=bs.inUse?'<span class="pin-now-mark" style="top:2px;right:2px;font-size:9px;padding:1px 4px">用</span>':(bs.future?'<span class="pin-fut-mark" style="top:2px;right:2px;font-size:9px;padding:1px 4px">约</span>':'');
+        // 父区封闭时，子地块强制用父区状态色（与区标签保持一致）
+        const showStatus=a.closed?a.status:p.status;
+        const showLabel=ST[showStatus].label;
+        return `<div class="plot${a.closed?' closed':''}" style="background:${ST[showStatus].solid}" title="${p.id}｜${showLabel}｜${p.height}cm${a.closed?' ｜🚧 父区封闭不可用':''}${bs.inUse?'｜⏱ 正在使用':''}${bs.future?'｜📅 已预约':''}">${plotMark}${p.id.split('-')[1]}</div>`;
+      }).join('')}</div>
+      ${(nowLine||futLine)?`<div class="bkbar">${nowLine}${nowLine&&futLine?'<br>':''}${futLine}</div>`:''}
+    </div>`;}).join('');
+}
+function renderToday(){
+  const list=D.bookings.filter(b=>(b.endDate||b.startDate)>=today()&&(b.status==='已确认'||b.status==='已完成')).sort((a,b)=>(a.startDate||a.date).localeCompare(b.startDate||b.date)).slice(0,10);
+  document.getElementById('todayBook').innerHTML=list.length?`<table><tr><th>日期范围</th><th>时段</th><th>区域/地块</th><th>面积</th><th>团队</th><th>需求类型</th><th>目标草高</th><th>状态</th></tr>${list.map(b=>`<tr><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区 ${(b.plots||[]).join('、')}</b></td><td>${b.area}㎡</td><td>${esc(b.team)}</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${stBadge(b.status)}</td></tr>`).join('')}</table>`:'<p class="tip">暂无近期预约。</p>';
+}
+function stBadge(s){return s==='已确认'?'<span class="badge b-blue">已确认</span>':s==='已完成'?'<span class="badge b-ok">已完成</span>':s==='已取消'?'<span class="badge b-gray">已取消</span>':'<span class="badge b-warn">'+s+'</span>';}
+function renderBookTable(){
+  const list=[...D.bookings].reverse();
+  document.getElementById('bookTable').innerHTML=list.length?`<table><tr><th>序号</th><th>提交时间</th><th>团队</th><th>联系人</th><th>日期范围</th><th>时段</th><th>区域</th><th>占用地块</th><th>面积</th><th>需求类型</th><th>目标草高</th><th>测试内容</th><th>状态</th><th>操作</th></tr>${list.map(b=>`<tr><td>${b.id}</td><td>${b.createdAt}</td><td>${esc(b.team)}</td><td>${esc(b.contact)}</td><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区</b></td><td>${(b.plots||[]).join('、')}</td><td>${b.area}㎡</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${esc(b.content)}</td><td>${b.cancelPending?'<span class="badge b-warn">取消审核中</span>':stBadge(b.status)}</td><td>${b.status==='已确认'?`<button class="btn red sm" onclick="requestCancel(${b.id})">申请取消</button>`:''}</td></tr>`).join('')}</table>`:'<p class="tip">暂无预约记录。</p>';
+}
+function renderDoneSelect(){
+  const open=D.bookings.filter(b=>b.status==='已确认');
+  document.getElementById('d-book').innerHTML=open.length?open.map(b=>`<option value="${b.id}">#${b.id} ${dateLabel(b)} ${b.start}-${b.end} ${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）｜${esc(b.team)}</option>`).join(''):'<option value="">（暂无待登记的预约）</option>';
+}
+function renderUsage(){
+  const list=[...D.usage].reverse();
+  document.getElementById('usageTable').innerHTML=list.length?`<table><tr><th>序号</th><th>登记时间</th><th>使用日期</th><th>区域</th><th>占用地块</th><th>面积</th><th>团队</th><th>测试内容</th><th>时段</th><th>草坪状态</th><th>用后草高</th><th>照片</th><th>地块状态处理</th><th>监督员</th><th>复核</th><th>剩余可用</th><th>备注</th></tr>${list.map(u=>`<tr><td>${u.id}</td><td>${u.loggedAt}</td><td>${dateLabel(u)}</td><td><b>${u.zone}区</b></td><td>${(u.plots||[]).join('、')}</td><td>${u.area}㎡</td><td>${esc(u.team)}</td><td>${esc(u.content)}</td><td>${u.start}-${u.end}</td><td>${u.cond==='良好'?'<span class="badge b-ok">良好</span>':u.cond==='轻微损伤'?'<span class="badge b-warn">轻微损伤</span>':'<span class="badge b-red">明显损伤</span>'}</td><td>${u.afterHeight!==undefined&&u.afterHeight!==null?u.afterHeight+'cm':'—'}</td><td>${(u.photos||[]).map((p,i)=>`<img class="thumb" src="${p}" onclick="window.open('${p}')">`).join('')||'—'}</td><td>${esc(u.action)}</td><td>${esc(u.supervisor||supervisorOf(u.endDate||u.startDate))}</td><td>${u.review==='已复核'?'<span class="badge b-ok">已复核</span>':u.review==='已退回'?'<span class="badge b-red">已退回</span>':'<span class="badge b-warn">待复核</span>'}</td><td>${esc(u.left||'')}</td><td>${esc(u.note||'')}</td></tr>`).join('')}</table>`:'<p class="tip">暂无使用记录。</p>';
+}
+function renderWeeklyLog(){
+  const list=[...D.weekly].reverse().slice(0,8);
+  document.getElementById('weeklyLog').innerHTML=list.length?list.map(w=>`<h3>${esc(w.label)}（${w.date}）</h3><table><tr><th>区域</th><th>地块</th><th>阶段</th><th>草高(cm)</th><th>备注</th></tr>${w.entries.map(e=>`<tr><td><b>${e.zone}区</b></td><td>${e.plot}</td><td>${ST[e.status]?ST[e.status].label:e.status}</td><td>${e.height}</td><td>${esc(e.note||'')}</td></tr>`).join('')}</table>`).join(''):'<p class="tip">暂无周报。</p>';
+}
+function renderSched(){
+  document.getElementById('schedTable').innerHTML=`<table><tr><th>周次</th><th>日期</th><th>A区</th><th>B区</th><th>C区</th><th>D区</th><th>可测区域</th></tr>${D.schedule.map(r=>`<tr class="${r[0]==='第1周'?'today':''}"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`).join('')}</table><p class="tip">E区不进入轮换，常态保持可测；紧急任务优先使用E区。地块级状态以实际子地块为准。</p>`;
+}
+/* ---------- 预约状态标记 ---------- */
+function timeMin(s){const[h,m]=(s||'00:00').split(':').map(Number);return (h||0)*60+(m||0);}
+function plotBookingState(plotId){
+  const todayStr=today();
+  const curMin=timeMin(new Date().toTimeString().slice(0,8));
+  let nowBks=[],futureBks=[];
+  for(const b of D.bookings){
+    if(b.status!=='已确认')continue;
+    if(!(b.plots||[]).includes(plotId))continue;
+    const sd=b.startDate, ed=b.endDate||sd;
+    if(todayStr<sd){futureBks.push(b);continue;}
+    if(todayStr>ed)continue;
+    const sMin=timeMin(b.start||'00:00'), eMin=timeMin(b.end||'23:59');
+    if(curMin>=sMin&&curMin<eMin)nowBks.push(b);else futureBks.push(b);
+  }
+  return {inUse:nowBks.length>0,future:futureBks.length>0,nowBks,futureBks};
+}
+function zoneBookings(z){
+  const todayStr=today();
+  const curMin=timeMin(new Date().toTimeString().slice(0,8));
+  const nowList=[],futureList=[];
+  for(const b of D.bookings){
+    if(b.status!=='已确认')continue;
+    if((b.plots||[]).some(p=>z.plots.find(pp=>pp.id===p))){
+      const sd=b.startDate, ed=b.endDate||sd;
+      if(todayStr<sd){futureList.push(b);continue;}
+      if(todayStr>ed)continue;
+      const sMin=timeMin(b.start||'00:00'), eMin=timeMin(b.end||'23:59');
+      if(curMin>=sMin&&curMin<eMin)nowList.push(b);else futureList.push(b);
+    }
+  }
+  return {nowList,futureList};
+}
+function fillWeeklyForm(){
+  let html='';
+  D.zones.forEach(z=>{
+    const a=agg(z);
+    const extraTip=z.id==='E'?'　<span style="color:#0d9488">E 区常态维持 5-7cm 梯度，建议按地块单独维护，勿用整区覆盖</span>':'　<span class="tip">改整区会套用全 5 块；改任一地块后该区不再被整区覆盖</span>';
+    // 整区快捷设置行（灰色）
+    html+=`<tr style="background:#f0f4f8"><td colspan="4"><b>${z.id}区</b> · ${z.role}　整区快捷：阶段 <select data-z="${z.id}" data-f="zoneStatus" onchange="applyZone('${z.id}')">${Object.entries(ST).filter(([k])=>k!=='partial').map(([k,v])=>`<option value="${k}" ${a.status==='partial'?'':(z.plots[0].status===k?'selected':'')}>${v.label}</option>`).join('')}<option value="__keep" ${a.status==='partial'?'selected':''}>保持各地块现状</option></select>　草高 <input data-z="${z.id}" data-f="zoneHeight" type="number" step="0.1" value="${z.plots[0].height}" style="width:80px">${extraTip}</td></tr>`;
+    // 5 个子地块行
+    z.plots.forEach(p=>{
+      html+=`<tr class="weekly-row"><td><b>${p.id}</b></td><td><select data-z="${z.id}" data-plot="${p.id}" data-f="status" onchange="markCustom('${z.id}')">${Object.entries(ST).filter(([k])=>k!=='partial').map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v.label}</option>`).join('')}</select></td><td><input type="number" step="0.1" data-z="${z.id}" data-plot="${p.id}" data-f="height" value="${p.height}" style="width:80px" oninput="markCustom('${z.id}')"></td><td><input data-z="${z.id}" data-plot="${p.id}" data-f="note" value="${esc(p.note||'')}" placeholder="选填" oninput="markCustom('${z.id}')"></td></tr>`;
+    });
+  });
+  document.querySelector('#weeklyTable tbody').innerHTML=html;
+}
+let customZones=new Set();
+function markCustom(zid){customZones.add(zid);}
+function applyZone(zid){
+  const st=document.querySelector(`select[data-f="zoneStatus"][data-z="${zid}"]`).value;
+  if(st==='__keep')return;
+  const zh=document.querySelector(`input[data-f="zoneHeight"][data-z="${zid}"]`).value;
+  document.querySelectorAll(`select[data-f="status"][data-z="${zid}"]`).forEach(s=>{s.value=st;});
+  if(zh!=='')document.querySelectorAll(`input[data-f="height"][data-z="${zid}"]`).forEach(s=>{s.value=zh;});
+  customZones.delete(zid);
+}
+
+/* ---------- 匹配 ---------- */
+let MR=null;
+document.getElementById('bookForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  const team=fv('f-team'),contact=fv('f-contact'),phone=fv('f-phone'),sdt=fv('f-start-dt'),edt=fv('f-end-dt');
+  if(!sdt||!edt){alert('请填写起始时间与结束时间');return;}
+  const [startDate,start]=sdt.split('T'),[endDate,end]=edt.split('T');
+  if(start>=end){alert('结束时间需晚于开始时间');return;}
+  if(endDate<startDate){alert('结束日期需晚于或等于起始日期');return;}
+  const type=fv('f-type'),targetH=fv('f-height'),blocks=parseInt(fv('f-blocks')),urgent=fv('f-urgent'),content=fv('f-content');
+  const need=targetH?parseFloat(targetH):null, area=blocks*PLOT_AREA;
+  const dateLabelDisp=startDate===endDate?startDate:`${startDate}~${endDate}`;
+  const results=[],rejects=[];
+  D.zones.forEach(z=>{
+    if(z.id==='E'&&urgent!=='yes'){rejects.push(`E区：仅紧急任务可使用${urgent==='no'?'（当前选「否」）':''}`);return;}
+    const flags=z.plots.map(p=>{
+      const c=plotOK(p,type,need);
+      if(!c.ok)return{ok:false,why:c.why};
+      if(plotBusy(p.id,startDate,start,end))return{ok:false,why:'起始日时段已占用'};
+      return{ok:true};
+    });
+    const free=flags.map((f,i)=>f.ok?i:-1);
+    let run=[],picked=null,contiguous=false;
+    for(let i=0;i<free.length;i++){
+      if(free[i]>=0)run.push(i);else run=[];
+      if(run.length===blocks){picked=run.slice();contiguous=true;break;}
+    }
+    if(!picked){picked=free.filter(i=>i>=0);if(picked.length<blocks){picked=null;}else{picked=picked.slice(0,blocks);}}
+    if(!picked){
+      const avail=free.filter(i=>i>=0).length;
+      rejects.push(`${z.id}区：可用地块 ${avail} 块（需 ${blocks} 块连片/合计）；${flags.map((f,i)=>f.ok?'':`${z.id}-${i+1}(${f.why})`).filter(Boolean).join('、')}`);
+      return;
+    }
+    const plots=picked.map(i=>z.plots[i].id);
+    let score=100;
+    if(contiguous)score+=10;
+    if(z.id==='E')score=urgent==='yes'?115:40;
+    if(z.id==='E'&&urgent==='no'&&D.zones.some(zz=>zz.id!=='E'&&agg(zz).readyArea>0))score=30;
+    results.push({z,plots,contiguous,score,area,heights:picked.map(i=>z.plots[i].height)});
+  });
+  results.sort((a,b)=>b.score-a.score);
+  MR={team,contact,phone,startDate,endDate,start,end,type,need,blocks,urgent,content,results};
+  document.getElementById('matchCard').style.display='block';
+  let html='';
+  if(results.length){
+    html+=results.map((r,i)=>{
+      const a=agg(r.z);
+      const heightWarn=need!==null?` <span class="badge b-warn">需 ${need}cm</span>`:'';
+      return `<div class="match"><label style="cursor:pointer"><input type="radio" name="mz" value="${i}" ${i===0?'checked':''}> <b>${r.z.id}区 · ${r.plots.join(' / ')}</b>（${r.area}㎡，${r.contiguous?'连片':'同区不连片'}）${heightWarn} <span class="score">${r.score>=115?'紧急最优':r.score>=100?'完全匹配':'可匹配（E区保底）'}</span></label>
+      <div class="why">各块草高：${r.plots.map((p,k)=>`${p} ${r.heights[k]}cm`).join(' ｜ ')}<br>该区其余 ${5-r.plots.length} 块不受影响，仍可预约（全区可测 ${a.readyArea}㎡）</div></div>`;
+    }).join('');
+    html+=`<button class="btn" onclick="confirmBook()">✅ 确认预约（${dateLabelDisp} ${start}-${end} · ${area}㎡）</button>`;
+  }else{
+    html=`<div class="nomatch"><b>当前无可匹配地块。</b><br>· ${rejects.join('<br>· ')}<br><br>建议：① 减少块数或改期/改时段重新匹配；② 长草(${need!==null?need+'cm':''}）需求请提前 1-2 周在需求会提出，安排培育至目标高度；③ 紧急任务联系管理员启用 E 区或备用 1000㎡ 草场。</div>`;
+  }
+  document.getElementById('matchResult').innerHTML=html;
+  document.getElementById('matchCard').scrollIntoView({behavior:'smooth'});
+});
+function fv(id){return document.getElementById(id).value.trim();}
+/* ---------- 钉钉群机器人推送（无 webhook 时降级为复制剪贴板） ---------- */
+async function dingtalkNotify(title,markdownBody,fallback){
+  const url=D.dingtalkWebhook;
+  const sup=supervisorOf(today());
+  const atMobiles=[]; // 如需 @ 指定人手机号，可在这里扩展
+  const text=`### ${title}\n\n${markdownBody}\n\n> 管理员 @${D.adminName}　本周监督员 @${sup}　请及时跟进`;
+  if(!url){
+    cp(text,fallback||'通知文本已复制到剪贴板，可粘贴到钉钉群/私聊发送。');
+    return false;
+  }
+  try{
+    const res=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json;charset=utf-8'},
+      mode:'cors',
+      body:JSON.stringify({msgtype:'markdown',markdown:{title:text.slice(0,20),text},at:{atMobiles,isAtAll:false}})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&(data.errcode===undefined||data.errcode===0))return true;
+    cp(text,`⚠️ 钉钉推送失败（${data.errmsg||res.status}），通知文本已复制到剪贴板请手动发送。`);
+    return false;
+  }catch(e){
+    cp(text,`⚠️ 钉钉推送异常（${e.message||'网络/CORS'}），通知文本已复制到剪贴板请手动发送。`);
+    return false;
+  }
+}
+function confirmBook(){
+  const r=document.querySelector('input[name="mz"]:checked');if(!r)return;
+  const pick=MR.results[parseInt(r.value)];
+  const id=D.bookings.length?Math.max(...D.bookings.map(b=>b.id))+1:1;
+  D.bookings.push({id,team:MR.team,contact:MR.contact,phone:MR.phone,startDate:MR.startDate,endDate:MR.endDate,start:MR.start,end:MR.end,zone:pick.z.id,plots:pick.plots,area:pick.area,type:MR.type,targetHeight:MR.need,urgent:MR.urgent,content:MR.content,status:'已确认',createdAt:new Date().toLocaleString('zh-CN')});
+  save();
+  const dl=MR.startDate===MR.endDate?MR.startDate:`${MR.startDate}~${MR.endDate}`;
+  alert(`✅ 预约成功\n\n${dl} ${MR.start}-${MR.end}｜${pick.z.id}区 ${pick.plots.join('/')}（${pick.area}㎡）\n使用后请在「使用完成登记」登记（按结束日那天的状态为准），系统只更新这几块的状态。`);
+  // 自动推送钉钉通知给管理员/监督员
+  const body=[
+    `**预约编号**：#${id}`,
+    `**使用团队**：${MR.team}`,
+    `**联系人**：${MR.contact}${MR.phone?'（'+MR.phone+'）':''}`,
+    `**时间**：${dl} ${MR.start}-${MR.end}`,
+    `**场地**：${pick.z.id}区 ${pick.plots.join('/')}（${pick.area}㎡${pick.contiguous?'·连片':'·同区不连片'}）`,
+    `**需求**：${TYPE[MR.type]}${MR.need?' · 目标草高 '+MR.need+'cm':''}${MR.urgent==='yes'?' · ⚠️紧急任务（已自动放行E区）':''}`,
+    `**测试内容**：${MR.content||'—'}`,
+    '',
+    `> 提交时间：${new Date().toLocaleString('zh-CN')}`,
+    `> 系统入口：[草场预约与状态管理系统](https://1c16326c8cf8407c80f08a8c8ac8e3ec.app.workbuddy.link)`
+  ].join('\n\n');
+  dingtalkNotify(`📥 新预约申请 #${id}（${MR.team}）`,body,`预约申请 #${id} 通知文本已复制，可粘贴到钉钉群通知管理员。`);
+  document.getElementById('matchCard').style.display='none';switchTab('list');
+}
+function requestCancel(id){
+  const b=D.bookings.find(x=>x.id===id);if(!b)return;
+  const reason=prompt(`【取消需管理员审批】\n预约：#${b.id} ${dateLabel(b)} ${b.start}-${b.end}｜${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）\n\n请填写取消原因（提交后将弹窗通知管理员，审批通过后地块才释放）：`);
+  if(reason===null)return;
+  if(!reason.trim()){alert('请填写取消原因');return;}
+  const cid=D.cancelRequests.length?Math.max(...D.cancelRequests.map(c=>c.id))+1:1;
+  const sup=supervisorOf(b.startDate);
+  D.cancelRequests.push({id:cid,bookingId:b.id,team:b.team,contact:b.contact,zone:b.zone,plots:b.plots,area:b.area,dateLabel:dateLabel(b),start:b.start,end:b.end,reason:reason.trim(),status:'待审核',createdAt:new Date().toLocaleString('zh-CN'),handledBy:'',handledAt:''});
+  b.cancelPending=true;
+  save();
+  alert(`✅ 取消申请已提交（#${cid}），已弹窗通知管理员【${D.adminName}】\n\n⚠️ 在管理员批准前，该预约仍占用场地资源，其他人无法预约这几块地。\n审批结果会通过管理后台通知你，也可在「管理后台 / 复核」查看。`);
+}
+function approveCancel(cid){
+  if(!canApprove())return;
+  const c=D.cancelRequests.find(x=>x.id===cid);if(!c)return;
+  if(!confirm(`确认批准取消申请 #${c.id}？\n${c.team}｜${c.dateLabel} ${c.start}-${c.end}｜${c.zone}区 ${(c.plots||[]).join('/')}\n批准后地块立即释放，其他人可预约。`))return;
+  const b=D.bookings.find(x=>x.id===c.bookingId);
+  if(b){b.status='已取消';b.cancelPending=false;}
+  c.status='已批准';c.handledBy=D.operator||D.adminName;c.handledAt=new Date().toLocaleString('zh-CN');
+  save();alert(`已批准 #${c.id}，地块已释放。\n通知文本已生成，可在下方「复制通知」发给用户。`);
+}
+function rejectCancel(cid){
+  if(!canApprove())return;
+  const c=D.cancelRequests.find(x=>x.id===cid);if(!c)return;
+  const why=prompt('驳回原因（将通知申请人）：');if(why===null)return;
+  const b=D.bookings.find(x=>x.id===c.bookingId);
+  if(b){b.cancelPending=false;}
+  c.status='已驳回';c.handledBy=D.operator||D.adminName;c.handledAt=new Date().toLocaleString('zh-CN');c.rejectReason=why||'';
+  save();alert(`已驳回 #${c.id}，预约继续有效，地块保持占用。`);
+}
+function canApprove(){
+  const op=(D.operator||'').trim();
+  if(!op){alert('请先在「管理后台」顶部填写当前操作人姓名');switchTab('admin');return false;}
+  if(D.phase==='trial'&&op!==D.adminName){alert(`试运行期仅管理员【${D.adminName}】可审批/复核。\n当前操作人：${op}\n如需操作请联系管理员，或由管理员在后台切换权限阶段。`);return false;}
+  return true;
+}
+
+/* ---------- 用后按地块更新 ---------- */
+document.getElementById('doneForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  const bid=parseInt(document.getElementById('d-book').value);
+  const b=D.bookings.find(x=>x.id===bid);if(!b){alert('请选择预约记录');return;}
+  const cond=document.getElementById('d-cond').value;
+  const afterH=document.getElementById('d-height').value;
+  if(afterH===''||isNaN(parseFloat(afterH))){alert('请填写「使用后草高」');return;}
+  const files=document.getElementById('d-photos').files;
+  if(!files||!files.length){alert('请上传至少 1 张现场照片');return;}
+  submitDone(b,cond,parseFloat(afterH),Array.from(files).slice(0,3));
+});
+function submitDone(b,cond,afterHeight,files){
+  const note=document.getElementById('d-note').value.trim();
+  let pending=files.length,photos=[];
+  const finish=()=>{
+    const z=D.zones.find(x=>x.id===b.zone);
+    let action='';
+    b.plots.forEach(pid=>{
+      const p=z.plots.find(pp=>pp.id===pid);if(!p)return;
+      if(cond==='良好'){
+        p.status=b.type==='long'?'recovering':'ready';
+        p.height=afterHeight;
+        p.note=`用后${afterHeight}cm`+(b.type==='long'?'·长草补剪复位':'');
+      }else if(cond==='轻微损伤'){
+        p.status='recovering';p.height=afterHeight;
+        p.note=`轻微损伤·恢复中·${afterHeight}cm`+(note?'·'+note:'');
+      }else{
+        p.status='repair';p.height=afterHeight;
+        p.note=`明显损伤·修复中·${afterHeight}cm`+(note?'·'+note:'');
+      }
+    });
+    action=cond==='良好'?(b.type==='long'?`${b.plots.length}块补剪复位→恢复期（草高${afterHeight}cm）`:`${b.plots.length}块状态良好，草高${afterHeight}cm，保持可测`)
+         :cond==='轻微损伤'?`${b.plots.length}块转恢复期（${afterHeight}cm，封闭约1周）`:`${b.plots.length}块封闭修复（${afterHeight}cm，预计2周补播）`;
+    const a=agg(z);
+    b.status='已完成';
+    const sup=supervisorOf(b.endDate||b.startDate);
+    D.usage.push({id:D.usage.length+1,loggedAt:new Date().toLocaleString('zh-CN'),startDate:b.startDate,endDate:b.endDate,zone:b.zone,plots:b.plots,area:b.area,team:b.team,contact:b.contact,content:b.content,start:b.start,end:b.end,cond,afterHeight,action,photos,supervisor:sup,review:'待复核',reviewBy:'',reviewAt:'',left:`${z.id}区剩余可测 ${a.readyArea}㎡（${a.readyCount}块）`,note});
+    document.getElementById('d-note').value='';document.getElementById('d-height').value='';document.getElementById('d-photos').value='';save();
+    alert(`✅ 登记已提交，地块状态已更新\n${z.id}区整体：${a.label}（未使用的 ${a.readyCount} 块仍可预约）\n\n⏳ 已进入复核：本周轮值监督员【${sup}】确认后本次使用才算闭环。`);
+  };
+  files.forEach(f=>compressImg(f,d=>{photos.push(d);if(--pending===0)finish();}));
+}
+function compressImg(file,cb){
+  const r=new FileReader();
+  r.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=900;let w=img.width,h=img.height;
+      if(w>max||h>max){const s=max/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      cb(c.toDataURL('image/jpeg',0.7));
+    };
+    img.onerror=()=>cb('');
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+/* ---------- 每周维护 ---------- */
+function saveWeekly(){
+  const label=document.getElementById('w-label').value.trim(),date=document.getElementById('w-date').value;
+  if(!label||!date){alert('请填写周次和日期');return;}
+  const entries=[];
+  D.zones.forEach(z=>{
+    const useCustom=customZones.has(z.id);
+    z.plots.forEach(p=>{
+      const sel=document.querySelector(`select[data-f="status"][data-z="${z.id}"][data-plot="${p.id}"]`);
+      const hi=document.querySelector(`input[data-f="height"][data-z="${z.id}"][data-plot="${p.id}"]`);
+      const ni=document.querySelector(`input[data-f="note"][data-z="${z.id}"][data-plot="${p.id}"]`);
+      if(useCustom||customZones.has(z.id)){
+        p.status=sel.value;p.height=parseFloat(hi.value)||p.height;p.note=ni.value||'';
+      }else{
+        const zs=document.querySelector(`select[data-f="zoneStatus"][data-z="${z.id}"]`).value;
+        const zh=document.querySelector(`input[data-f="zoneHeight"][data-z="${z.id}"]`).value;
+        p.status=zs==='__keep'?p.status:zs;
+        p.height=(zs==='__keep'||zh==='')?p.height:parseFloat(zh);
+        p.note='';
+      }
+      entries.push({zone:z.id,plot:p.id,status:p.status,height:p.height,note:p.note||''});
+    });
+  });
+  D.weekly.push({label,date,entries});
+  customZones.clear();save();
+  alert('本周状态已提交：每个子地块的阶段/草高已更新，看板与平面图已即时刷新，参与后续预约匹配，记录存入养护周报。');
+}
+
+/* ---------- 轮值监督员 / 逾期提醒 / 管理后台 ---------- */
+function weekIndex(d){const t=new Date(d+'T00:00:00'),s=new Date('2026-09-01T00:00:00');return Math.floor((t-s)/6048e5);}
+function mondayOf(d){const t=new Date(d+'T00:00:00');const w=(t.getDay()+6)%7;t.setDate(t.getDate()-w);return t.toISOString().slice(0,10);}
+function supervisorOf(d){const l=D.supervisors||[];if(!l.length)return '未配置';const i=((weekIndex(d)%l.length)+l.length)%l.length;return l[i];}
+function overdueList(){
+  return D.bookings.filter(b=>b.status==='已确认'&&(b.endDate||b.startDate)<today());
+}
+function pendingReview(){return D.usage.filter(u=>u.review==='待复核');}
+function pendingCancel(){return D.cancelRequests.filter(c=>c.status==='待审核');}
+function renderOverdue(){
+  const od=overdueList();const box=document.getElementById('overdueBar');
+  if(!od.length){box.innerHTML='';return;}
+  box.innerHTML=`<div class="alertbar"><b>⏰ 逾期未登记提醒（${od.length} 条）</b> —— 以下预约已过结束日期，使用人仍未提交使用登记（草长数据 + 现场照片）。请尽快登记，或联系当周轮值监督员跟进。
+  <ul>${od.map(b=>`<li>#${b.id} ${esc(b.team)}·${esc(b.contact)}｜${dateLabel(b)} ${b.start}-${b.end}｜${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）→ 监督员：<b>${supervisorOf(b.endDate||b.startDate)}</b></li>`).join('')}</ul>
+  <button class="btn red sm" onclick="copyOverdue()">📋 复制钉钉提醒（@使用人 + @监督员）</button></div>`;
+}
+function copyOverdue(){
+  const od=overdueList();if(!od.length)return;
+  const lines=od.map(b=>`@${b.contact||b.team} 你在 ${dateLabel(b)} ${b.start}-${b.end} 使用的 ${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）尚未提交使用登记（草长数据+现场照片），请尽快到草场系统「使用完成登记」补登记。@${supervisorOf(b.endDate||b.startDate)} 请协助跟进。`);
+  cp(`⏰【草场使用登记逾期提醒】\n${lines.join('\n')}\n——草场预约与状态管理系统`,'钉钉提醒文本已复制，可直接发到部门群（含本人 + 当周轮值监督员）。');
+}
+function renderAdmin(){
+  document.getElementById('phaseTip').innerHTML=`当前阶段：<b>${D.phase==='trial'?'试运行期':'稳定运行期'}</b>｜管理员：<b>${D.adminName}</b>｜本周轮值监督员：<b>${supervisorOf(today())}</b><br>${D.phase==='trial'?'试运行期（建议 2-3 周至 1 个月）由开发/管理员统一审批取消与复核，待用户习惯养成后在上方切换为「稳定运行期」，逐步把复核权限下放给轮值监督员。':'稳定运行期：轮值监督员可复核使用登记；取消审批仍建议保留在管理员。'}`;
+  // 取消申请
+  const cl=[...D.cancelRequests].reverse();
+  document.getElementById('cancelList').innerHTML=cl.length?`<table><tr><th>申请号</th><th>提交时间</th><th>团队/联系人</th><th>预约</th><th>取消原因</th><th>状态</th><th>操作</th></tr>${cl.map(c=>`<tr><td>#${c.id}</td><td>${c.createdAt}</td><td>${esc(c.team)}·${esc(c.contact)}</td><td>${c.dateLabel} ${c.start}-${c.end}<br>${c.zone}区 ${(c.plots||[]).join('/')} ${c.area}㎡</td><td>${esc(c.reason)}</td><td>${c.status==='待审核'?'<span class="badge b-warn">待审核</span>':c.status==='已批准'?'<span class="badge b-ok">已批准（地块已释放）</span>':'<span class="badge b-red">已驳回</span>'}${c.handledBy?`<br><span class="tip">${esc(c.handledBy)} ${c.handledAt}</span>`:''}</td><td>${c.status==='待审核'?`<button class="btn sm" onclick="approveCancel(${c.id})">批准并释放</button><button class="btn gray sm" onclick="rejectCancel(${c.id})">驳回</button>`:''}<button class="btn blue sm" onclick="copyCancelNotice(${c.id})">复制通知</button></td></tr>`).join('')}</table>`:'<p class="tip">暂无取消申请。</p>';
+  // 使用复核
+  const rl=[...D.usage].filter(u=>u.review!=='已退回'||true).reverse();
+  document.getElementById('reviewList').innerHTML=rl.length?`<table><tr><th>记录号</th><th>登记时间</th><th>团队</th><th>地块/面积</th><th>草坪状态</th><th>用后草高</th><th>现场照片</th><th>监督员</th><th>复核</th><th>操作</th></tr>${rl.map(u=>`<tr><td>#${u.id}</td><td>${u.loggedAt}</td><td>${esc(u.team)}·${esc(u.contact)}</td><td>${u.zone}区 ${(u.plots||[]).join('/')}<br>${u.area}㎡</td><td>${u.cond}</td><td>${u.afterHeight!==undefined&&u.afterHeight!==null?u.afterHeight+'cm':'—'}</td><td>${(u.photos||[]).map((p,i)=>`<img class="thumb" src="${p}" onclick="window.open('${p}')">`).join('')||'—'}</td><td>${esc(u.supervisor||supervisorOf(u.endDate||u.startDate))}</td><td>${u.review==='待复核'?'<span class="badge b-warn">待复核</span>':u.review==='已复核'?'<span class="badge b-ok">已复核</span>':'<span class="badge b-red">已退回</span>'}${u.reviewBy?`<br><span class="tip">${esc(u.reviewBy)} ${u.reviewAt}</span>`:''}</td><td>${u.review!=='已复核'?`<button class="btn sm" onclick="reviewUsage(${u.id},1)">通过</button><button class="btn gray sm" onclick="reviewUsage(${u.id},0)">退回</button>`:'—'}</td></tr>`).join('')}</table>`:'<p class="tip">暂无使用登记记录。</p>';
+  // 排期
+  let rows='';
+  for(let i=0;i<8;i++){
+    const m=new Date(mondayOf(today()));m.setDate(m.getDate()+i*7);
+    const ms=m.toISOString().slice(0,10);
+    const me=new Date(m);me.setDate(me.getDate()+6);
+    rows+=`<tr><td>${i===0?'本周':('第'+(i+1)+'周')}</td><td>${ms} ~ ${me.toISOString().slice(0,10)}</td><td><b>${supervisorOf(ms)}</b></td></tr>`;
+  }
+  document.getElementById('rosterView').innerHTML=`<table><tr><th>周次</th><th>日期区间</th><th>轮值监督员</th></tr>${rows}</table><p class="tip">名单自动滚动轮值（每周一换人）；修改名单即时生效，历史记录仍保留原监督员署名。</p>`;
+  document.getElementById('a-roster').value=(D.supervisors||[]).join('\n');
+  document.getElementById('a-phase').value=D.phase;
+  document.getElementById('a-admin').value=D.adminName;
+  document.getElementById('a-operator').value=D.operator||'';
+  document.getElementById('a-webhook').value=D.dingtalkWebhook||'';
+  const ws=document.getElementById('webhookStatus');
+  ws.innerHTML=D.dingtalkWebhook?'✅ 已配置：预约申请将自动推送消息到此群。<br>当前管理员：<b>'+esc(D.adminName)+'</b>　当周监督员：<b>'+supervisorOf(today())+'</b>':'⚠️ 未配置 webhook。预约通知将降级为「自动复制到剪贴板」，需手动粘贴到钉钉发送。';
+  renderStats();
+}
+function savePhase(){
+  D.phase=document.getElementById('a-phase').value;
+  D.adminName=document.getElementById('a-admin').value.trim()||'廖钰杨';
+  D.operator=document.getElementById('a-operator').value.trim();
+  D.dingtalkWebhook=document.getElementById('a-webhook').value.trim();
+  save();
+  // 实时刷新 webhook 状态提示
+  const ws=document.getElementById('webhookStatus');
+  if(ws)ws.innerHTML=D.dingtalkWebhook?'✅ 已配置 webhook。':'⚠️ 未配置 webhook。';
+}
+function saveRoster(){
+  const v=document.getElementById('a-roster').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(v.length)D.supervisors=v;
+  save();
+}
+function copyCancelNotice(cid){
+  const c=D.cancelRequests.find(x=>x.id===cid);if(!c)return;
+  const txt=c.status==='待审核'?`🔔【取消申请待审批】\n${c.team}·${c.contact} 申请取消：${c.dateLabel} ${c.start}-${c.end}｜${c.zone}区 ${(c.plots||[]).join('/')}（${c.area}㎡）\n原因：${c.reason}\n@${D.adminName} 请在草场系统「管理后台 / 复核」审批，批准前该地块仍被占用。`
+    :`✅【取消申请已处理】\n${c.team}·${c.contact} 的取消申请 #${c.id}（${c.dateLabel} ${c.zone}区 ${(c.plots||[]).join('/')}）：${c.status}${c.rejectReason?'（'+c.rejectReason+'）':''}\n处理人：${c.handledBy}　${c.handledAt}\n${c.status==='已批准'?'地块已释放，可重新预约。':'预约继续有效，请按时使用。'}`;
+  cp(txt,'通知文本已复制，可发给管理员/申请人。');
+}
+function reviewUsage(id,pass){
+  if(!canApprove())return;
+  const u=D.usage.find(x=>x.id===id);if(!u)return;
+  if(pass){
+    u.review='已复核';u.reviewBy=D.operator||D.adminName;u.reviewAt=new Date().toLocaleString('zh-CN');
+    save();alert(`✅ #${u.id} 复核通过，本次使用流程闭环完成。`);
+  }else{
+    const why=prompt('退回原因（将退回给使用人重新登记）：');if(why===null)return;
+    u.review='已退回';u.reviewBy=D.operator||D.adminName;u.reviewAt=new Date().toLocaleString('zh-CN');u.rejectReason=why||'';
+    save();alert(`已退回 #${u.id}，请通知使用人重新提交使用登记。`);
+  }
+}
+function renderStats(){
+  const us=D.usage,bk=D.bookings;
+  const byZone={};D.zones.forEach(z=>byZone[z.id]={times:0,area:0});
+  us.forEach(u=>{if(byZone[u.zone]){byZone[u.zone].times++;byZone[u.zone].area+=(u.area||0);}});
+  const byTeam={};us.forEach(u=>{byTeam[u.team]=(byTeam[u.team]||0)+1;});
+  const byCond={};us.forEach(u=>{byCond[u.cond]=(byCond[u.cond]||0)+1;});
+  const done=us.filter(u=>u.review==='已复核').length;
+  document.getElementById('statView').innerHTML=`<table><tr><th>统计项</th><th>数据</th></tr>
+   <tr><td>累计预约</td><td>${bk.length} 单（已取消 ${bk.filter(b=>b.status==='已取消').length}）</td></tr>
+   <tr><td>累计使用登记</td><td>${us.length} 条（已复核 ${done}，复核完成率 ${us.length?Math.round(done/us.length*100):0}%）</td></tr>
+   <tr><td>累计使用面积</td><td>${us.reduce((s,u)=>s+(u.area||0),0)}㎡</td></tr>
+   <tr><td>取消申请</td><td>${D.cancelRequests.length} 条（待审核 ${pendingCancel().length}）</td></tr>
+   <tr><td>逾期未登记</td><td>${overdueList().length} 条</td></tr>
+   <tr><td>各区使用次数/面积</td><td>${Object.entries(byZone).map(([k,v])=>`${k}区 ${v.times}次/${v.area}㎡`).join('　')}</td></tr>
+   <tr><td>草坪状态分布</td><td>${Object.entries(byCond).map(([k,v])=>`${k} ${v}次`).join('　')||'—'}</td></tr>
+   <tr><td>团队使用排行</td><td>${Object.entries(byTeam).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k} ${v}次`).join('　')||'—'}</td></tr></table>`;
+}
+
+/* ---------- 导出/复制 ---------- */
+function dl(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}));a.download=n;a.click();}
+function toCSV(r){return r.map(x=>x.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(',')).join('\n');}
+function toTSV(r){return r.map(x=>x.map(c=>String(c??'').replace(/\t/g,' ')).join('\t')).join('\n');}
+function bookRows(){return [['序号','提交时间','团队/部门','联系人','联系电话','起始日期','结束日期','时间段(起)','时间段(止)','区域','占用地块','面积(㎡)','需求类型','目标草高(cm)','测试内容','状态','备注'],
+  ...D.bookings.map(b=>[b.id,b.createdAt,b.team,b.contact,b.phone,b.startDate,b.endDate,b.start,b.end,b.zone+'区',(b.plots||[]).join('、'),b.area,TYPE[b.type],b.targetHeight||'',b.content,b.status,b.urgent==='yes'?'紧急任务':''])];}
+function usageRows(){return [['序号','登记时间','起始日期','结束日期','区域','占用地块','面积(㎡)','使用团队','测试内容','开始','结束','使用后草坪状态','用后草高(cm)','照片数','轮值监督员','复核状态','地块状态处理','剩余可用','备注'],
+  ...D.usage.map(u=>[u.id,u.loggedAt,u.startDate,u.endDate,u.zone+'区',(u.plots||[]).join('、'),u.area,u.team,u.content,u.start,u.end,u.cond,u.afterHeight!==undefined&&u.afterHeight!==null?u.afterHeight:'',(u.photos||[]).length,u.supervisor||supervisorOf(u.endDate||u.startDate),u.review||'待复核',u.action,u.left||'',u.note||''])];}
+function exportBook(){dl('草场预约表.csv',toCSV(bookRows()));}
+function exportUsage(){dl('草场使用记录.csv',toCSV(usageRows()));}
+function exportWeekly(){dl('草场养护周报.csv',toCSV([['周次','日期','区域','地块','阶段','草高(cm)','备注'],...D.weekly.flatMap(w=>w.entries.map(e=>[w.label,w.date,e.zone+'区',e.plot,ST[e.status]?ST[e.status].label:e.status,e.height,e.note]))]));}
+function exportReview(){dl('草场复核记录.csv',toCSV([['记录号','登记时间','使用日期','区域','占用地块','面积(㎡)','团队','联系人','草坪状态','用后草高(cm)','照片数','轮值监督员','复核状态','复核人','复核时间','退回原因'],
+  ...D.usage.map(u=>[u.id,u.loggedAt,dateLabel(u),u.zone+'区',(u.plots||[]).join('、'),u.area,u.team,u.contact,u.cond,u.afterHeight!==undefined&&u.afterHeight!==null?u.afterHeight:'',(u.photos||[]).length,u.supervisor||supervisorOf(u.endDate||u.startDate),u.review||'待复核',u.reviewBy||'',u.reviewAt||'',u.rejectReason||''])]));}
+function exportCancel(){dl('草场取消申请.csv',toCSV([['申请号','提交时间','团队','联系人','预约日期','时段','区域','占用地块','面积(㎡)','取消原因','状态','处理人','处理时间','驳回原因'],
+  ...D.cancelRequests.map(c=>[c.id,c.createdAt,c.team,c.contact,c.dateLabel,c.start+'-'+c.end,c.zone+'区',(c.plots||[]).join('、'),c.area,c.reason,c.status,c.handledBy||'',c.handledAt||'',c.rejectReason||''])]));}
+function exportStats(){
+  const us=D.usage,bk=D.bookings;
+  const byZone={};D.zones.forEach(z=>byZone[z.id]={times:0,area:0});
+  us.forEach(u=>{if(byZone[u.zone]){byZone[u.zone].times++;byZone[u.zone].area+=(u.area||0);}});
+  const byTeam={};us.forEach(u=>{byTeam[u.team]=(byTeam[u.team]||0)+1;});
+  const byCond={};us.forEach(u=>{byCond[u.cond]=(byCond[u.cond]||0)+1;});
+  const rows=[['【汇总】'],['指标','数值'],
+    ['累计预约',bk.length],['已取消',bk.filter(b=>b.status==='已取消').length],
+    ['累计使用登记',us.length],['已复核',us.filter(u=>u.review==='已复核').length],
+    ['累计使用面积(㎡)',us.reduce((s,u)=>s+(u.area||0),0)],
+    ['取消申请',D.cancelRequests.length],['逾期未登记',overdueList().length],
+    [''],['【各区使用】'],['区域','使用次数','使用面积(㎡)'],
+    ...Object.entries(byZone).map(([k,v])=>[k+'区',v.times,v.area]),
+    [''],['【草坪状态分布】'],['状态','次数'],...Object.entries(byCond).map(([k,v])=>[k,v]),
+    [''],['【团队使用排行】'],['团队','次数'],...Object.entries(byTeam).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v])
+  ];
+  dl('草场统计汇总.csv',toCSV(rows));
+}
+function cp(t,m){navigator.clipboard.writeText(t).then(()=>alert(m),()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();alert(m);});}
+function copyBook(){cp(toTSV(bookRows()),'已复制预约总览，可粘贴到钉钉《预约表》子表。');}
+function copyUsage(){cp(toTSV(usageRows()),'已复制使用记录，可粘贴到钉钉《使用记录》子表。');}
+function copyBroadcast(){
+  const lines=D.zones.map(z=>{const a=agg(z);return `· ${z.id}区：${a.label}，可测 ${a.readyArea}㎡（${a.readyCount}/5块）`;});
+  const bk=D.bookings.filter(b=>b.startDate<=today()&&(b.endDate||b.startDate)>=today()&&b.status==='已确认').map(b=>`  · ${b.start}-${b.end} ${b.zone}区 ${(b.plots||[]).join('/')} ${b.area}㎡ ${b.team}`);
+  cp(`📢 草场状态播报（${today()}）\n${lines.join('\n')}\n📅 今日预约：\n${bk.join('\n')||'  · 无'}`,'部门群播报已复制。');
+}
+async function resetData(){if(confirm('重置为初始数据？本机预约/记录将清空。')){localStorage.removeItem(KEY);D=await load();save();}}
+function switchTab(p){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.p===p));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('p-'+p).classList.add('active');}
+document.getElementById('nav').addEventListener('click',e=>{if(e.target.dataset.p)switchTab(e.target.dataset.p);});
+document.getElementById('f-start-dt').value=today()+'T09:00';
+document.getElementById('f-end-dt').value=today()+'T12:00';
+document.getElementById('w-date').value=today();
+document.getElementById('f-start-dt').addEventListener('change',e=>{const ed=document.getElementById('f-end-dt');if(!ed.value||ed.value<e.target.value)ed.value=e.target.value;});
+updateEUrgTip();
+function updateEUrgTip(){
+  const v=document.getElementById('f-urgent').value;
+  const tip=document.getElementById('e-tip');
+  if(v==='yes'){tip.innerHTML='<span style="color:#b45309">✓ 紧急任务：可优先匹配 E 区容错（5-7cm 梯度），不占 A-D 轮换排期</span>';}
+  else{tip.innerHTML='<span style="color:#6b7a8c">✗ 非紧急任务：E 区不可用，只能匹配 A-D 四个常规轮换区</span>';}
+}
+/* 启动：拉取远端（若已配置 Supabase）并开启定时同步 */
+async function boot(){D=await load();render();startSync();}
+boot();
+</script>
+</body>
+</html>
