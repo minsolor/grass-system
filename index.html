@@ -100,7 +100,7 @@ textarea{resize:vertical;min-height:56px}
   <div id="overdueBar"></div>
   <div class="card">
     <h2>五区实时状态（子地块颗粒度 40㎡）</h2>
-    <div class="toolbar"><button class="btn blue sm" onclick="copyBroadcast()">📢 复制部门群播报</button><button class="btn gray sm" onclick="resetData()">↺ 重置为钉钉表数据</button></div>
+    <div class="toolbar"><button class="btn blue sm" onclick="copyBroadcast()">📢 复制部门群播报</button></div>
     <div class="grid" id="zoneGrid"></div>
     <p class="plots-legend">图例：绿=可测 · 青=部分可测 · 橙=施肥养护 · 蓝=恢复期 · 紫=长草培育 · 红=修复中。</p>
   </div>
@@ -932,7 +932,6 @@ function copyBroadcast(){
   const bk=D.bookings.filter(b=>b.startDate<=today()&&(b.endDate||b.startDate)>=today()&&b.status==='已确认').map(b=>`  · ${b.start}-${b.end} ${b.zone}区 ${(b.plots||[]).join('/')} ${b.area}㎡ ${b.team}`);
   cp(`📢 草场状态播报（${today()}）\n${lines.join('\n')}\n📅 今日预约：\n${bk.join('\n')||'  · 无'}`,'部门群播报已复制。');
 }
-async function resetData(){if(confirm('重置为初始数据？本机预约/记录将清空。')){localStorage.removeItem(KEY);D=await load();save();}}
 function switchTab(p){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.p===p));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById('p-'+p).classList.add('active');}
 document.getElementById('nav').addEventListener('click',e=>{if(e.target.dataset.p)switchTab(e.target.dataset.p);});
 document.getElementById('f-start-dt').value=today()+'T09:00';
