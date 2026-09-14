@@ -43,7 +43,9 @@ td{padding:7px 8px;border:1px solid var(--line);vertical-align:top}
 tr.today{background:#fefce8}
 form .row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:10px}
 label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
-input,select,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit;background:#fff}
+input,select,textarea{box-sizing:border-box;width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--text)}
+.mrow select.m-model{min-width:160px;flex:1}
+.qty-stepper{display:flex;align-items:center;gap:2px}
 textarea{resize:vertical;min-height:56px}
 .btn{display:inline-block;border:none;border-radius:8px;padding:9px 18px;font-size:13.5px;cursor:pointer;background:#166534;color:#fff;margin-right:8px;margin-top:4px}
 .btn.gray{background:#64748b}.btn.red{background:var(--red)}.btn.blue{background:var(--blue)}.btn.sm{padding:5px 10px;font-size:12px}
@@ -143,7 +145,7 @@ textarea{resize:vertical;min-height:56px}
       <div class="row"><div style="grid-column:1/-1">
         <label>是否需要割草机器</label>
         <select id="f-needMachine" onchange="toggleMachineFields()">
-          <option value="no">否（仅预约场地）</option>
+          <option value="no" selected>否（仅预约场地）</option>
           <option value="yes">是（需要借割草机器）</option>
         </select>
       </div></div>
@@ -645,7 +647,7 @@ document.getElementById('bookForm').addEventListener('submit',function(e){
 });
 function fv(id){return document.getElementById(id).value.trim();}
 /* ---------- 割草机器选择（预约时记录需求，库存校验后续再上） ---------- */
-function machineOptionsSel(){return MACHINES.map(m=>`<option value="${m.model}">${m.name}</option>`).join('');}
+function machineOptionsSel(){return MACHINES.map((m,i)=>`<option value="${m.model}"${i===0?' selected':''}>${m.name}</option>`).join('');}
 function toggleMachineFields(){
   const show=document.getElementById('f-needMachine').value==='yes';
   document.getElementById('machineFields').style.display=show?'block':'none';
