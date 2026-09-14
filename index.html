@@ -140,6 +140,18 @@ textarea{resize:vertical;min-height:56px}
         <div><label>是否紧急任务</label><select id="f-urgent" onchange="updateEUrgTip()"><option value="no">否（E 区不可用）</option><option value="yes">是（紧急任务可优先匹配 E 区）</option></select><div id="e-tip" class="tip" style="margin-top:4px"></div></div>
       </div>
       <div class="row"><div><label>测试内容 *</label><textarea id="f-content" required placeholder="如：3块40㎡ 7cm 长草穿越测试"></textarea></div></div>
+      <div class="row"><div style="grid-column:1/-1">
+        <label>是否需要割草机器</label>
+        <select id="f-needMachine" onchange="toggleMachineFields()">
+          <option value="no">否（仅预约场地）</option>
+          <option value="yes">是（需要借割草机器）</option>
+        </select>
+      </div></div>
+      <div id="machineFields" style="display:none;margin-top:8px">
+        <div class="notice">选择本次需要的割草机器型号与数量，可添加多行（库存暂未启用校验，仅记录需求）。</div>
+        <div id="machineRows"></div>
+        <button type="button" class="btn gray sm" onclick="addMachineRow()">＋ 添加机器</button>
+      </div>
       <button type="submit" class="btn">🔍 自动匹配可用地块</button>
     </form>
   </div>
@@ -284,6 +296,14 @@ const ST={
   repair:{label:'修复中',bg:'var(--red-bg)',fg:'var(--red)',solid:'#dc2626',closed:true}
 };
 const TYPE={normal:'③常规使用',long:'①看草长(长草区)',stubble:'②看割草高度'};
+const MACHINES=[
+  {model:'MGA01-R7',name:'MGA01-R7 大型割草机器人'},
+  {model:'MGA02-R5系列',name:'MGA02-R5系列 中型割草机器人'},
+  {model:'MGS M9Pro',name:'MGS M9Pro 专业割草机器人'},
+  {model:'MGS02',name:'MGS02 割草机器人'},
+  {model:'MGS03',name:'MGS03 割草机器人'},
+  {model:'MGV-01',name:'MGV-01 割草机器人'}
+];
 const KEY='grassSystemV3';
 /* ===== 云端共享存储（Supabase）：填好下方两项即自动切换为多人实时共享 ===== */
 const SUPABASE_URL='https://vqbdmhcchhggkhjpuewo.supabase.co';       // ← 粘贴你的 Supabase Project URL（形如 https://xxxx.supabase.co）
@@ -479,16 +499,16 @@ function renderZones(){
 }
 function renderToday(){
   const list=D.bookings.filter(b=>(b.endDate||b.startDate)>=today()&&(b.status==='已确认'||b.status==='已完成')).sort((a,b)=>(a.startDate||a.date).localeCompare(b.startDate||b.date)).slice(0,10);
-  document.getElementById('todayBook').innerHTML=list.length?`<table><tr><th>日期范围</th><th>时段</th><th>区域/地块</th><th>面积</th><th>团队</th><th>需求类型</th><th>目标草高</th><th>状态</th></tr>${list.map(b=>`<tr><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区 ${(b.plots||[]).join('、')}</b></td><td>${b.area}㎡</td><td>${esc(b.team)}</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${stBadge(b.status)}</td></tr>`).join('')}</table>`:'<p class="tip">暂无近期预约。</p>';
+  document.getElementById('todayBook').innerHTML=list.length?`<table><tr><th>日期范围</th><th>时段</th><th>区域/地块</th><th>面积</th><th>团队</th><th>割草机器</th><th>需求类型</th><th>目标草高</th><th>状态</th></tr>${list.map(b=>`<tr><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区 ${(b.plots||[]).join('、')}</b></td><td>${b.area}㎡</td><td>${esc(b.team)}</td><td>${machineText(b.machines)}</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${stBadge(b.status)}</td></tr>`).join('')}</table>`:'<p class="tip">暂无近期预约。</p>';
 }
 function stBadge(s){return s==='已确认'?'<span class="badge b-blue">已确认</span>':s==='已完成'?'<span class="badge b-ok">已完成</span>':s==='已取消'?'<span class="badge b-gray">已取消</span>':'<span class="badge b-warn">'+s+'</span>';}
 function renderBookTable(){
   const list=[...D.bookings].reverse();
-  document.getElementById('bookTable').innerHTML=list.length?`<table><tr><th>序号</th><th>提交时间</th><th>团队</th><th>联系人</th><th>日期范围</th><th>时段</th><th>区域</th><th>占用地块</th><th>面积</th><th>需求类型</th><th>目标草高</th><th>测试内容</th><th>状态</th><th>操作</th></tr>${list.map(b=>`<tr><td>${b.id}</td><td>${b.createdAt}</td><td>${esc(b.team)}</td><td>${esc(b.contact)}</td><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区</b></td><td>${(b.plots||[]).join('、')}</td><td>${b.area}㎡</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${esc(b.content)}</td><td>${b.cancelPending?'<span class="badge b-warn">取消审核中</span>':stBadge(b.status)}</td><td>${b.status==='已确认'?`<button class="btn red sm" onclick="requestCancel(${b.id})">申请取消</button>`:''}</td></tr>`).join('')}</table>`:'<p class="tip">暂无预约记录。</p>';
+  document.getElementById('bookTable').innerHTML=list.length?`<table><tr><th>序号</th><th>提交时间</th><th>团队</th><th>割草机器</th><th>联系人</th><th>日期范围</th><th>时段</th><th>区域</th><th>占用地块</th><th>面积</th><th>需求类型</th><th>目标草高</th><th>测试内容</th><th>状态</th><th>操作</th></tr>${list.map(b=>`<tr><td>${b.id}</td><td>${b.createdAt}</td><td>${esc(b.team)}</td><td>${machineText(b.machines)}</td><td>${esc(b.contact)}</td><td>${dateLabel(b)}</td><td>${b.start}-${b.end}</td><td><b>${b.zone}区</b></td><td>${(b.plots||[]).join('、')}</td><td>${b.area}㎡</td><td>${TYPE[b.type]}</td><td>${b.targetHeight||'不限'}</td><td>${esc(b.content)}</td><td>${b.cancelPending?'<span class="badge b-warn">取消审核中</span>':stBadge(b.status)}</td><td>${b.status==='已确认'?`<button class="btn red sm" onclick="requestCancel(${b.id})">申请取消</button>`:''}</td></tr>`).join('')}</table>`:'<p class="tip">暂无预约记录。</p>';
 }
 function renderDoneSelect(){
   const open=D.bookings.filter(b=>b.status==='已确认');
-  document.getElementById('d-book').innerHTML=open.length?open.map(b=>`<option value="${b.id}">#${b.id} ${dateLabel(b)} ${b.start}-${b.end} ${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）｜${esc(b.team)}</option>`).join(''):'<option value="">（暂无待登记的预约）</option>';
+  document.getElementById('d-book').innerHTML=open.length?open.map(b=>`<option value="${b.id}">#${b.id} ${dateLabel(b)} ${b.start}-${b.end} ${b.zone}区 ${(b.plots||[]).join('/')}（${b.area}㎡）｜${esc(b.team)}｜割草机器：${machineText(b.machines)}</option>`).join(''):'<option value="">（暂无待登记的预约）</option>';
 }
 function renderUsage(){
   const list=[...D.usage].reverse();
@@ -569,6 +589,12 @@ document.getElementById('bookForm').addEventListener('submit',function(e){
   if(start>=end){alert('结束时间需晚于开始时间');return;}
   if(endDate<startDate){alert('结束日期需晚于或等于起始日期');return;}
   const type=fv('f-type'),targetH=fv('f-height'),blocks=parseInt(fv('f-blocks')),urgent=fv('f-urgent'),content=fv('f-content');
+  const needMachine=fv('f-needMachine');
+  let machines=[];
+  if(needMachine==='yes'){
+    machines=collectMachines();
+    if(!machines.length){alert('请填写所需割草机器的型号与数量（点「＋ 添加机器」选择型号并填数量）。');return;}
+  }
   const need=targetH?parseFloat(targetH):null, area=blocks*PLOT_AREA;
   const dateLabelDisp=startDate===endDate?startDate:`${startDate}~${endDate}`;
   const results=[],rejects=[];
@@ -600,7 +626,7 @@ document.getElementById('bookForm').addEventListener('submit',function(e){
     results.push({z,plots,contiguous,score,area,heights:picked.map(i=>z.plots[i].height)});
   });
   results.sort((a,b)=>b.score-a.score);
-  MR={team,contact,phone,startDate,endDate,start,end,type,need,blocks,urgent,content,results};
+  MR={team,contact,phone,startDate,endDate,start,end,type,need,blocks,urgent,content,needMachine,machines,results};
   document.getElementById('matchCard').style.display='block';
   let html='';
   if(results.length){
@@ -618,6 +644,32 @@ document.getElementById('bookForm').addEventListener('submit',function(e){
   document.getElementById('matchCard').scrollIntoView({behavior:'smooth'});
 });
 function fv(id){return document.getElementById(id).value.trim();}
+/* ---------- 割草机器选择（预约时记录需求，库存校验后续再上） ---------- */
+function machineOptionsSel(){return MACHINES.map(m=>`<option value="${m.model}">${m.name}</option>`).join('');}
+function toggleMachineFields(){
+  const show=document.getElementById('f-needMachine').value==='yes';
+  document.getElementById('machineFields').style.display=show?'block':'none';
+  if(show&&!document.getElementById('machineRows').children.length)addMachineRow();
+}
+function addMachineRow(){
+  const box=document.getElementById('machineRows');
+  const div=document.createElement('div');
+  div.className='mrow';
+  div.style.cssText='display:flex;gap:8px;align-items:center;margin:6px 0';
+  div.innerHTML=`<select class="m-model">${machineOptionsSel()}</select><span>×</span><input type="number" class="m-qty" min="1" step="1" value="1" style="width:72px;padding:6px"><button type="button" class="btn gray sm" onclick="this.parentNode.remove()">✕ 删除</button>`;
+  box.appendChild(div);
+}
+function collectMachines(){
+  if(document.getElementById('f-needMachine').value!=='yes')return [];
+  const out=[];
+  document.querySelectorAll('#machineRows .mrow').forEach(r=>{
+    const model=r.querySelector('.m-model').value;
+    const qty=parseInt(r.querySelector('.m-qty').value)||0;
+    if(model&&qty>0)out.push({model,qty});
+  });
+  return out;
+}
+function machineText(m){const arr=m&&m.length?m:[];return arr.length?arr.map(x=>`${x.model} ×${x.qty}`).join('，'):'—';}
 /* ---------- 钉钉群机器人推送（无 webhook 时降级为复制剪贴板） ---------- */
 async function dingtalkNotify(title,markdownBody,fallback){
   const url=D.dingtalkWebhook;
@@ -648,10 +700,10 @@ function confirmBook(){
   const r=document.querySelector('input[name="mz"]:checked');if(!r)return;
   const pick=MR.results[parseInt(r.value)];
   const id=D.bookings.length?Math.max(...D.bookings.map(b=>b.id))+1:1;
-  D.bookings.push({id,team:MR.team,contact:MR.contact,phone:MR.phone,startDate:MR.startDate,endDate:MR.endDate,start:MR.start,end:MR.end,zone:pick.z.id,plots:pick.plots,area:pick.area,type:MR.type,targetHeight:MR.need,urgent:MR.urgent,content:MR.content,status:'已确认',createdAt:new Date().toLocaleString('zh-CN')});
+  D.bookings.push({id,team:MR.team,contact:MR.contact,phone:MR.phone,startDate:MR.startDate,endDate:MR.endDate,start:MR.start,end:MR.end,zone:pick.z.id,plots:pick.plots,area:pick.area,type:MR.type,targetHeight:MR.need,urgent:MR.urgent,content:MR.content,machines:MR.machines||[],status:'已确认',createdAt:new Date().toLocaleString('zh-CN')});
   save();
   const dl=MR.startDate===MR.endDate?MR.startDate:`${MR.startDate}~${MR.endDate}`;
-  alert(`✅ 预约成功\n\n${dl} ${MR.start}-${MR.end}｜${pick.z.id}区 ${pick.plots.join('/')}（${pick.area}㎡）\n使用后请在「使用完成登记」登记（按结束日那天的状态为准），系统只更新这几块的状态。`);
+  alert(`✅ 预约成功\n\n${dl} ${MR.start}-${MR.end}｜${pick.z.id}区 ${pick.plots.join('/')}（${pick.area}㎡）\n割草机器需求：${machineText(MR.machines)}\n使用后请在「使用完成登记」登记（按结束日那天的状态为准），系统只更新这几块的状态。`);
   // 自动推送钉钉通知给管理员/监督员
   const body=[
     `**预约编号**：#${id}`,
@@ -661,6 +713,7 @@ function confirmBook(){
     `**场地**：${pick.z.id}区 ${pick.plots.join('/')}（${pick.area}㎡${pick.contiguous?'·连片':'·同区不连片'}）`,
     `**需求**：${TYPE[MR.type]}${MR.need?' · 目标草高 '+MR.need+'cm':''}${MR.urgent==='yes'?' · ⚠️紧急任务（已自动放行E区）':''}`,
     `**测试内容**：${MR.content||'—'}`,
+    `**割草机器**：${machineText(MR.machines)}`,
     '',
     `> 提交时间：${new Date().toLocaleString('zh-CN')}`,
     `> 系统入口：[草场预约与状态管理系统](https://1c16326c8cf8407c80f08a8c8ac8e3ec.app.workbuddy.link)`
@@ -895,8 +948,8 @@ function renderStats(){
 function dl(n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv;charset=utf-8'}));a.download=n;a.click();}
 function toCSV(r){return r.map(x=>x.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(',')).join('\n');}
 function toTSV(r){return r.map(x=>x.map(c=>String(c??'').replace(/\t/g,' ')).join('\t')).join('\n');}
-function bookRows(){return [['序号','提交时间','团队/部门','联系人','联系电话','起始日期','结束日期','时间段(起)','时间段(止)','区域','占用地块','面积(㎡)','需求类型','目标草高(cm)','测试内容','状态','备注'],
-  ...D.bookings.map(b=>[b.id,b.createdAt,b.team,b.contact,b.phone,b.startDate,b.endDate,b.start,b.end,b.zone+'区',(b.plots||[]).join('、'),b.area,TYPE[b.type],b.targetHeight||'',b.content,b.status,b.urgent==='yes'?'紧急任务':''])];}
+function bookRows(){return [['序号','提交时间','团队/部门','割草机器','联系人','联系电话','起始日期','结束日期','时间段(起)','时间段(止)','区域','占用地块','面积(㎡)','需求类型','目标草高(cm)','测试内容','状态','备注'],
+  ...D.bookings.map(b=>[b.id,b.createdAt,b.team,machineText(b.machines),b.contact,b.phone,b.startDate,b.endDate,b.start,b.end,b.zone+'区',(b.plots||[]).join('、'),b.area,TYPE[b.type],b.targetHeight||'',b.content,b.status,b.urgent==='yes'?'紧急任务':''])];}
 function usageRows(){return [['序号','登记时间','起始日期','结束日期','区域','占用地块','面积(㎡)','使用团队','测试内容','开始','结束','使用后草坪状态','用后草高(cm)','照片数','轮值监督员','复核状态','地块状态处理','剩余可用','备注'],
   ...D.usage.map(u=>[u.id,u.loggedAt,u.startDate,u.endDate,u.zone+'区',(u.plots||[]).join('、'),u.area,u.team,u.content,u.start,u.end,u.cond,u.afterHeight!==undefined&&u.afterHeight!==null?u.afterHeight:'',(u.photos||[]).length,u.supervisor||supervisorOf(u.endDate||u.startDate),u.review||'待复核',u.action,u.left||'',u.note||''])];}
 function exportBook(){dl('草场预约表.csv',toCSV(bookRows()));}
