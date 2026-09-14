@@ -656,8 +656,14 @@ function addMachineRow(){
   const div=document.createElement('div');
   div.className='mrow';
   div.style.cssText='display:flex;gap:8px;align-items:center;margin:6px 0';
-  div.innerHTML=`<select class="m-model">${machineOptionsSel()}</select><span>×</span><input type="number" class="m-qty" min="1" step="1" value="1" style="width:72px;padding:6px"><button type="button" class="btn gray sm" onclick="this.parentNode.remove()">✕ 删除</button>`;
+  div.innerHTML=`<select class="m-model">${machineOptionsSel()}</select><span>×</span><div class="qty-stepper" style="display:flex;align-items:center;gap:2px"><button type="button" class="btn gray sm" onclick="adjustQty(this,-1)" style="padding:4px 8px">−</button><input type="number" class="m-qty" min="1" step="1" value="1" style="width:56px;text-align:center;padding:6px"><button type="button" class="btn gray sm" onclick="adjustQty(this,1)" style="padding:4px 8px">+</button></div><button type="button" class="btn gray sm" onclick="this.parentNode.remove()">✕ 删除</button>`;
   box.appendChild(div);
+}
+function adjustQty(btn,delta){
+  const input=btn.parentNode.querySelector('.m-qty');
+  let v=parseInt(input.value)||1;
+  v=Math.max(1,v+delta);
+  input.value=v;
 }
 function collectMachines(){
   if(document.getElementById('f-needMachine').value!=='yes')return [];
